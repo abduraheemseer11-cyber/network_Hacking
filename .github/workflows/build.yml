@@ -7,6 +7,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    # هذا السطر يخبر GitHub أن يعمل داخل مجلد SlipNet-main
+    defaults:
+      run:
+        working-directory: SlipNet-main
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -44,4 +50,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: SlipNet-APKs
-        path: app/build/outputs/apk/full/debug/*.apk
+        # تم تعديل المسار ليشمل مجلد SlipNet-main
+        path: SlipNet-main/app/build/outputs/apk/full/debug/*.apk
