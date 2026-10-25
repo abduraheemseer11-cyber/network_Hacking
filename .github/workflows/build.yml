@@ -4,13 +4,12 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+env:
+  OPENSSL_VERSION: "3.0.15"
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    
-    defaults:
-      run:
-        working-directory: SlipNet-main
 
     steps:
     - name: Checkout code with submodules
@@ -24,13 +23,8 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
 
-    - name: Install System Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake ninja-build python3 python3-pip perl
-
-    - name: Setup Android SDK & NDK
-      uses: android-actions/setup-android@v4
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
 
     - name: Install specific NDK
       run: |
@@ -43,31 +37,49 @@ jobs:
         targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
     - name: Install cargo-ndk
-      run: cargo install cargo-ndk
+      run: cargo install cargo-ndk --locked
 
-    - name: Cache Gradle packages
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: SlipNet-main/gomobile-build/go.mod
+        cache-dependency-path: SlipNet-main/gomobile-build/go.sum
+
+    - name: Install gomobile
+      run: go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init
+
+    - name: Build Go mobile libraries
+      working-directory: SlipNet-main/gomobile-build
+      run: make build
+
+    - name: Cache OpenSSL
+      id: cache-openssl
       uses: actions/cache@v4
       with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+        path: ~/android-openssl
+        key: openssl-android-${{ env.OPENSSL_VERSION }}
+
+    - name: Build OpenSSL for Android
+      if: steps.cache-openssl.outputs.cache-hit != 'true'
+      run: |
+        chmod +x SlipNet-main/app/scripts/build-openssl-android.sh
+        OUTPUT_DIR=$HOME/android-openssl/android-ssl \
+        OPENSSL_VERSION=${{ env.OPENSSL_VERSION }} \
+        SlipNet-main/app/scripts/build-openssl-android.sh
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
         cache-disabled: true
 
-    - name: Setup OpenSSL for Android
-      run: chmod +x gradlew && ./gradlew setupOpenSsl
-
-    - name: Build APK (Full Debug)
-      run: ./gradlew assembleFullDebug
+    - name: Build Debug APK
+      working-directory: SlipNet-main
+      run: |
+        chmod +x gradlew
+        ./gradlew assembleFullDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: SlipNet-APKs
+        name: SlipNet-Debug-APK
         path: SlipNet-main/app/build/outputs/apk/full/debug/*.apk
