@@ -49,23 +49,16 @@ jobs:
       run: go install golang.org/x/mobile/cmd/gomobile@latest && gomobile init
 
     - name: Build Go mobile libraries
-      working-directory: SlipNet-main/gomobile-build
+      working-directory: ./SlipNet-main/gomobile-build
       run: make build
 
-    - name: Cache OpenSSL
-      id: cache-openssl
-      uses: actions/cache@v4
-      with:
-        path: ~/android-openssl
-        key: openssl-android-${{ env.OPENSSL_VERSION }}
-
     - name: Build OpenSSL for Android
-      if: steps.cache-openssl.outputs.cache-hit != 'true'
+      working-directory: ./SlipNet-main
       run: |
-        chmod +x SlipNet-main/app/scripts/build-openssl-android.sh
+        chmod +x app/scripts/build-openssl-android.sh
         OUTPUT_DIR=$HOME/android-openssl/android-ssl \
         OPENSSL_VERSION=${{ env.OPENSSL_VERSION }} \
-        SlipNet-main/app/scripts/build-openssl-android.sh
+        ./app/scripts/build-openssl-android.sh
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
@@ -73,7 +66,7 @@ jobs:
         cache-disabled: true
 
     - name: Build Debug APK
-      working-directory: SlipNet-main
+      working-directory: ./SlipNet-main
       run: |
         chmod +x gradlew
         ./gradlew assembleFullDebug
