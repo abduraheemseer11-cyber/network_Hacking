@@ -24,10 +24,15 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
 
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake ninja-build python3 python3-pip perl
+
     - name: Setup Android SDK & NDK
       uses: android-actions/setup-android@v4
 
-    - name: Install NDK 29.0.14206865
+    - name: Install specific NDK
       run: |
         $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;29.0.14206865"
         echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> $GITHUB_ENV
@@ -40,17 +45,26 @@ jobs:
     - name: Install cargo-ndk
       run: cargo install cargo-ndk
 
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
-        gradle-version: 9.3.1
         cache-disabled: true
 
     - name: Setup OpenSSL for Android
-      run: gradle setupOpenSsl
+      run: chmod +x gradlew && ./gradlew setupOpenSsl
 
     - name: Build APK (Full Debug)
-      run: gradle assembleFullDebug
+      run: ./gradlew assembleFullDebug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
